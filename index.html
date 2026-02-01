@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ежедневный отчёт маркетинга</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background:#f5f5f7;
+      margin:0;
+      padding:20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background:#ffffff;
+      padding:20px 30px;
+      border-radius:10px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    }
+    h1, h2, h3 {
+      margin-top:0;
+    }
+    label {
+      display:block;
+      margin-top:10px;
+      font-weight:600;
+    }
+    input[type="text"],
+    input[type="date"],
+    textarea,
+    select {
+      width:100%;
+      padding:8px;
+      margin-top:4px;
+      box-sizing:border-box;
+      border:1px solid #ccc;
+      border-radius:4px;
+      font-size:14px;
+    }
+    textarea {
+      resize:vertical;
+      min-height:60px;
+    }
+    table {
+      width:100%;
+      border-collapse:collapse;
+      margin-top:10px;
+      font-size:13px;
+    }
+    th, td {
+      border:1px solid #ddd;
+      padding:6px 8px;
+      text-align:left;
+    }
+    th {
+      background:#f0f0f5;
+    }
+    .btn-row {
+      margin-top:15px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    button {
+      padding:8px 16px;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+      font-size:14px;
+    }
+    .btn-primary {
+      background:#007bff;
+      color:#fff;
+    }
+    .btn-primary:hover {
+      background:#0056b3;
+    }
+    .btn-secondary {
+      background:#6c757d;
+      color:#fff;
+    }
+    .btn-secondary:hover {
+      background:#545b62;
+    }
+    .status-done {
+      color:#1e7e34;
+      font-weight:bold;
+    }
+    .status-not-done {
+      color:#c82333;
+      font-weight:bold;
+    }
+    .status-in-progress {
+      color:#e0a800;
+      font-weight:bold;
+    }
+    .summary-box {
+      border-left:4px solid #007bff;
+      background:#f7f9ff;
+      padding:10px 12px;
+      margin-top:10px;
+      font-size:13px;
+    }
+    #reportPreview {
+      margin-top:30px;
+      padding:20px;
+      border-radius:10px;
+      background:#ffffff;
+      box-shadow:0 4px 10px rgba(0,0,0,0.06);
+    }
+    .small {
+      font-size:12px;
+      color:#666;
+    }
+  </style>
+
+  <!-- jsPDF + html2canvas для генерации PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+  <h1>Ежедневный отчёт маркетинга</h1>
+  <p class="small">Введите данные, нажмите «Сформировать отчёт», затем «Скачать PDF».</p>
+
+  <!-- Форма ввода -->
+  <div id="formBlock">
+    <h2>Шапка отчёта</h2>
+    <label>Дата:
+      <input type="date" id="date">
+    </label>
+    <label>Сотрудник:
+      <input type="text" id="employee" placeholder="Например: Роман Диана">
+    </label>
+    <label>Должность:
+      <select id="role">
+        <option value="РОМ">РОМ</option>
+        <option value="Авитолог">Авитолог</option>
+        <option value="SMM контент-специалист">SMM контент-специалист</option>
+        <option value="Маркетолог">Маркетолог</option>
+      </select>
+    </label>
+    <label>Фокус дня (главная цель):
+      <textarea id="focus" placeholder="Кратко: что главное сегодня?"></textarea>
+    </label>
+
+    <h2>Задачи на день (общий план)</h2>
+    <label>Список задач (план на день):
+      <textarea id="dayPlan" placeholder="Список ключевых задач на день, через перенос строки."></textarea>
+    </label>
+
+    <h2>План / факт по лидам</h2>
+    <p class="small">Отдельный учёт по лидам (по каналам).</p>
+    <table id="leadsTable">
+      <thead>
+      <tr>
+        <th>Канал</th>
+        <th>План лидов</th>
+        <th>Факт лидов</th>
+        <th>Статус</th>
+        <th>Комментарий</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><input type="text" placeholder="Например: Авито, ТГ, ВК"></td>
+        <td><input type="text" value="0"></td>
+        <td><input type="text" value="0"></td>
+        <td>
+          <select>
+            <option value="done">✅ Выполнено</option>
+            <option value="in_progress">⏳ В работе</option>
+            <option value="not_done">❌ Не сделано</option>
+          </select>
+        </td>
+        <td><input type="text" placeholder="Краткий комментарий"></td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" onclick="addLeadsRow()">Добавить канал</button>
+    </div>
+
+    <h2>План / факт по задачам</h2>
+    <p class="small">Исполнительская часть: контент, объявления, аналитика, орг-задачи и т.п.</p>
+    <table id="tasksTable">
+      <thead>
+      <tr>
+        <th>Задача</th>
+        <th>Тип</th>
+        <th>План (ед.)</th>
+        <th>Факт (ед.)</th>
+        <th>Статус</th>
+        <th>Комментарий</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><input type="text" placeholder="Например: Сторис для TG"></td>
+        <td><input type="text" placeholder="Контент / аналитика / орг"></td>
+        <td><input type="text" value="0"></td>
+        <td><input type="text" value="0"></td>
+        <td>
+          <select>
+            <option value="done">✅ Выполнено</option>
+            <option value="in_progress">⏳ В работе</option>
+            <option value="not_done">❌ Не сделано</option>
+          </select>
+        </td>
+        <td><input type="text" placeholder="Краткий комментарий"></td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" onclick="addTaskRow()">Добавить задачу</button>
+    </div>
+
+    <h2>Учёт рабочего времени</h2>
+    <p class="small">Фиксируем ключевые блоки работы и время.</p>
+    <table id="timeTable">
+      <thead>
+      <tr>
+        <th>Задача / блок</th>
+        <th>Начало</th>
+        <th>Окончание</th>
+        <th>Комментарий</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><input type="text" placeholder="Например: Подготовка сторис для TG"></td>
+        <td><input type="text" placeholder="10:00"></td>
+        <td><input type="text" placeholder="11:30"></td>
+        <td><input type="text" placeholder="Что делали в этот период"></td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="btn-row">
+      <button type="button" class="btn-secondary" onclick="addTimeRow()">Добавить блок времени</button>
+    </div>
+
+    <h2>Итоги дня и план</h2>
+    <label>Что получилось хорошо:
+      <textarea id="good" placeholder="Кратко: что удалось, где молодец"></textarea>
+    </label>
+    <label>Что не сделано / просрочено:
+      <textarea id="bad" placeholder="Кратко: что не успели и почему"></textarea>
+    </label>
+    <label>Приоритеты на завтра:
+      <textarea id="tomorrow" placeholder="3–5 ключевых задач на завтра"></textarea>
+    </label>
+
+    <div class="btn-row">
+      <button type="button" class="btn-primary" onclick="generateReport()">Сформировать отчёт</button>
+      <button type="button" class="btn-secondary" onclick="downloadPDF()">Скачать PDF</button>
+    </div>
+  </div>
+
+  <!-- Превью отчёта, из него делаем PDF -->
+  <div id="reportPreview" style="display:none;">
+    <!-- сюда JS вставит финальный отчёт -->
+  </div>
+</div>
+
+<script>
+  function addLeadsRow() {
+    const tbody = document.querySelector('#leadsTable tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" placeholder="Канал"></td>
+      <td><input type="text" value="0"></td>
+      <td><input type="text" value="0"></td>
+      <td>
+        <select>
+          <option value="done">✅ Выполнено</option>
+          <option value="in_progress">⏳ В работе</option>
+          <option value="not_done">❌ Не сделано</option>
+        </select>
+      </td>
+      <td><input type="text" placeholder="Комментарий"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function addTaskRow() {
+    const tbody = document.querySelector('#tasksTable tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" placeholder="Задача"></td>
+      <td><input type="text" placeholder="Тип"></td>
+      <td><input type="text" value="0"></td>
+      <td><input type="text" value="0"></td>
+      <td>
+        <select>
+          <option value="done">✅ Выполнено</option>
+          <option value="in_progress">⏳ В работе</option>
+          <option value="not_done">❌ Не сделано</option>
+        </select>
+      </td>
+      <td><input type="text" placeholder="Комментарий"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function addTimeRow() {
+    const tbody = document.querySelector('#timeTable tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" placeholder="Задача / блок"></td>
+      <td><input type="text" placeholder="Начало"></td>
+      <td><input type="text" placeholder="Окончание"></td>
+      <td><input type="text" placeholder="Комментарий"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function generateReport() {
+    const date = document.getElementById('date').value;
+    const employee = document.getElementById('employee').value;
+    const role = document.getElementById('role').value;
+    const focus = document.getElementById('focus').value;
+    const dayPlan = document.getElementById('dayPlan').value;
+    const good = document.getElementById('good').value;
+    const bad = document.getElementById('bad').value;
+    const tomorrow = document.getElementById('tomorrow').value;
+
+    // Лиды
+    const leadsRows = document.querySelectorAll('#leadsTable tbody tr');
+    let leadsHtml = '';
+    let leadsPlanTotal = 0;
+    let leadsFactTotal = 0;
+    let leadsDoneCount = 0;
+    let leadsTotal = 0;
+
+    leadsRows.forEach(row => {
+      const tds = row.querySelectorAll('td');
+      const channel = tds[0].querySelector('input').value;
+      const plan = parseFloat(tds[1].querySelector('input').value || '0');
+      const fact = parseFloat(tds[2].querySelector('input').value || '0');
+      const statusVal = tds[3].querySelector('select').value;
+      const comment = tds[4].querySelector('input').value;
+
+      let statusText = '';
+      let statusClass = '';
+      if (statusVal === 'done') {
+        statusText = '✅ Выполнено';
+        statusClass = 'status-done';
+        leadsDoneCount++;
+      } else if (statusVal === 'in_progress') {
+        statusText = '⏳ В работе';
+        statusClass = 'status-in-progress';
+      } else {
+        statusText = '❌ Не сделано';
+        statusClass = 'status-not-done';
+      }
+
+      leadsPlanTotal += plan;
+      leadsFactTotal += fact;
+      leadsTotal++;
+
+      leadsHtml += `
+        <tr>
+          <td>${channel}</td>
+          <td>${plan}</td>
+          <td>${fact}</td>
+          <td class="${statusClass}">${statusText}</td>
+          <td>${comment}</td>
+        </tr>
+      `;
+    });
+
+    const leadsPercent = leadsPlanTotal > 0 ? Math.round((leadsFactTotal / leadsPlanTotal) * 100) : 0;
+    const leadsDonePercent = leadsTotal > 0 ? Math.round((leadsDoneCount / leadsTotal) * 100) : 0;
+
+    // Задачи
+    const taskRows = document.querySelectorAll('#tasksTable tbody tr');
+    let tasksHtml = '';
+    let totalPlannedTasks = 0;
+    let totalFactTasks = 0;
+    let doneCount = 0;
+    let totalTasks = 0;
+
+    taskRows.forEach(row => {
+      const tds = row.querySelectorAll('td');
+      const task = tds[0].querySelector('input').value;
+      const type = tds[1].querySelector('input').value;
+      const plan = parseFloat(tds[2].querySelector('input').value || '0');
+      const fact = parseFloat(tds[3].querySelector('input').value || '0');
+      const statusVal = tds[4].querySelector('select').value;
+      const comment = tds[5].querySelector('input').value;
+
+      let statusText = '';
+      let statusClass = '';
+      if (statusVal === 'done') {
+        statusText = '✅ Выполнено';
+        statusClass = 'status-done';
+        doneCount++;
+      } else if (statusVal === 'in_progress') {
+        statusText = '⏳ В работе';
+        statusClass = 'status-in-progress';
+      } else {
+        statusText = '❌ Не сделано';
+        statusClass = 'status-not-done';
+      }
+
+      totalPlannedTasks += plan;
+      totalFactTasks += fact;
+      totalTasks++;
+
+      tasksHtml += `
+        <tr>
+          <td>${task}</td>
+          <td>${type}</td>
+          <td>${plan}</td>
+          <td>${fact}</td>
+          <td class="${statusClass}">${statusText}</td>
+          <td>${comment}</td>
+        </tr>
+      `;
+    });
+
+    const donePercent = totalTasks > 0 ? Math.round((doneCount / totalTasks) * 100) : 0;
+    const tasksPerfPercent = totalPlannedTasks > 0 ? Math.round((totalFactTasks / totalPlannedTasks) * 100) : 0;
+
+    // Время
+    const timeRows = document.querySelectorAll('#timeTable tbody tr');
+    let timeHtml = '';
+    timeRows.forEach(row => {
+      const tds = row.querySelectorAll('td');
+      const task = tds[0].querySelector('input').value;
+      const start = tds[1].querySelector('input').value;
+      const end = tds[2].querySelector('input').value;
+      const comment = tds[3].querySelector('input').value;
+      timeHtml += `
+        <tr>
+          <td>${task}</td>
+          <td>${start}</td>
+          <td>${end}</td>
+          <td>${comment}</td>
+        </tr>
+      `;
+    });
+
+    const preview = document.getElementById('reportPreview');
+    preview.style.display = 'block';
+    preview.innerHTML = `
+      <h2>📋 Отчёт о проделанной работе</h2>
+      <p><strong>Сотрудник:</strong> ${employee || '-'}<br>
+         <strong>Должность:</strong> ${role || '-'}<br>
+         <strong>Дата:</strong> ${date || '-'}<br>
+         <strong>Отдел:</strong> Маркетинг</p>
+
+      <h3>🔥 Фокус дня</h3>
+      <p>${(focus || '').replace(/\n/g,'<br>')}</p>
+
+      <h3>📝 План задач на день</h3>
+      <p>${(dayPlan || '').replace(/\n/g,'<br>')}</p>
+
+      <h3>📊 План / факт по лидам</h3>
+      <div class="summary-box">
+        <div><strong>Всего каналов:</strong> ${leadsTotal}</div>
+        <div><strong>% выполненных каналов:</strong> ${leadsDonePercent}%</div>
+        <div><strong>План лидов всего:</strong> ${leadsPlanTotal}</div>
+        <div><strong>Факт лидов всего:</strong> ${leadsFactTotal}</div>
+        <div><strong>Выполнение плана по лидам:</strong> ${leadsPercent}%</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Канал</th>
+            <th>План лидов</th>
+            <th>Факт лидов</th>
+            <th>Статус</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${leadsHtml}
+        </tbody>
+      </table>
+
+      <h3>📌 План / факт по задачам</h3>
+      <div class="summary-box">
+        <div><strong>Всего задач:</strong> ${totalTasks}</div>
+        <div><strong>% выполненных задач:</strong> ${donePercent}%</div>
+        <div><strong>План (единиц работ) всего:</strong> ${totalPlannedTasks}</div>
+        <div><strong>Факт (единиц работ) всего:</strong> ${totalFactTasks}</div>
+        <div><strong>Выполнение плана по задачам:</strong> ${tasksPerfPercent}%</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Задача</th>
+            <th>Тип</th>
+            <th>План</th>
+            <th>Факт</th>
+            <th>Статус</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tasksHtml}
+        </tbody>
+      </table>
+
+      <h3>⏱ Учёт рабочего времени</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Задача / блок</th>
+            <th>Начало</th>
+            <th>Окончание</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${timeHtml}
+        </tbody>
+      </table>
+
+      <h3>📌 Итоги дня</h3>
+      <p><strong>Что получилось хорошо:</strong><br>${(good || '').replace(/\n/g,'<br>')}</p>
+      <p><strong>Что не сделано / просрочено:</strong><br>${(bad || '').replace(/\n/g,'<br>')}</p>
+      <p><strong>Приоритеты на завтра:</strong><br>${(tomorrow || '').replace(/\n/g,'<br>')}</p>
+    `;
+    window.scrollTo({ top: preview.offsetTop - 10, behavior: 'smooth' });
+  }
+
+  async function downloadPDF() {
+    const element = document.getElementById('reportPreview');
+    if (!element || element.style.display === 'none') {
+      alert('Сначала нажмите "Сформировать отчёт".');
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save('otchet-marketing.pdf');
+    } catch (error) {
+      alert('Ошибка при создании PDF: ' + error.message);
+      console.error(error);
+    }
+  }
+</script>
+
+</body>
+</html>
